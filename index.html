@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AD-Blocker Tester Website</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Add Chart.js for statistics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --card-bg: rgba(45, 45, 45, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: rgba(0, 0, 0, 0.25);
+            --success-color: #4CAF50;
+            --error-color: #f44336;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f0f2f5;
+            --text-color: #333333;
+            --card-bg: rgba(255, 255, 255, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(76, 175, 80, 0.1), transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        header {
+            padding: 1.5rem;
+            text-align: center;
+            background: rgba(45, 45, 45, 0.3);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            background: linear-gradient(45deg, var(--success-color), #81c784);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            padding: 0.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 6px var(--glass-shadow);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .score-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 8px 32px var(--glass-shadow);
+        }
+
+        .score-display {
+            font-size: 5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--success-color), #81c784);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 1.5rem 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: rgba(221, 221, 221, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 1.5rem 0;
+            border: 1px solid var(--glass-border);
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), #81c784);
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .start-test {
+            background: linear-gradient(45deg, var(--success-color), #81c784);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 1.5rem 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .start-test:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .start-test:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ad-test-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2.5rem;
+        }
+
+        .ad-test-item {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s ease;
+        }
+
+        .ad-test-item h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+
+        .ad-test-item p {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 1rem;
+        }
+
+        .ad-test-item.blocked {
+            border: 2px solid var(--success-color);
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.2);
+        }
+
+        .ad-test-item.not-blocked {
+            border: 2px solid var(--error-color);
+            box-shadow: 0 0 15px rgba(244, 67, 54, 0.2);
+        }
+
+        .status {
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            background: rgba(45, 45, 45, 0.3);
+            display: inline-block;
+        }
+
+        .blocked .status {
+            color: var(--success-color);
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .not-blocked .status {
+            color: var(--error-color);
+            background: rgba(244, 67, 54, 0.1);
+        }
+
+        /* New styles for additional features */
+        .statistics-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px var(--glass-shadow);
+        }
+
+        .export-button {
+            background: linear-gradient(45deg, #2196F3, #64B5F6);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 1rem 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .filter-container {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .filter-button {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-button.active {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            background: var(--success-color);
+            color: white;
+            transform: translateY(150%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+        }
+
+        .settings-toggle {
+            position: fixed;
+            right: auto;
+            left: 20px;
+            top: 20px;
+            background: linear-gradient(45deg, var(--success-color), #81c784);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .settings-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        /* Update settings panel position to match new button position */
+        .settings-panel {
+            position: fixed;
+            left: -300px;
+            right: auto;
+            top: 0;
+            width: 300px;
+            height: 100vh;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            transition: left 0.3s ease;
+            z-index: 1000;
+            border-right: 1px solid var(--glass-border);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .settings-panel.open {
+            left: 0;
+        }
+
+        /* Add some padding to the header to account for the button */
+        header {
+            padding-left: 80px;
+        }
+
+        /* Style the settings content */
+        .settings-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .settings-group input[type="range"] {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .settings-group input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+
+        .dialog-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .dialog-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card p {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--success-color);
+        }
+
+        .history-button {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-color);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 1rem;
+        }
+
+        .comparison-container {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 400px;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 1rem;
+            z-index: 999;
+        }
+
+        .comparison-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .comparison-charts {
+            margin-bottom: 1rem;
+        }
+
+        .comparison-details {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .score-display {
+                font-size: 4rem;
+            }
+
+            .ad-test-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>AD-Blocker Tester</h1>
+        <button class="theme-toggle" id="themeToggle">☀️</button>
+        <button class="history-button" onclick="showHistoryDialog()">View History</button>
+    </header>
+
+    <div class="container">
+        <div class="score-card">
+            <h2>Your Ad Blocker Score</h2>
+            <div class="score-display" id="scoreDisplay">0</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <button class="start-test" id="startTest">Start Test</button>
+        </div>
+
+        <div class="ad-test-container" id="adTestContainer">
+            <!-- Ad test items will be added here dynamically -->
+        </div>
+    </div>
+
+    <div class="statistics-container">
+        <div class="chart-card">
+            <canvas id="blockedChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+
+    <div class="filter-container">
+        <button class="filter-button active" data-filter="all">All</button>
+        <button class="filter-button" data-filter="blocked">Blocked Only</button>
+        <button class="filter-button" data-filter="notblocked">Not Blocked Only</button>
+    </div>
+
+    <button class="export-button" id="exportPDF">Export as PDF</button>
+    <button class="export-button" id="exportCSV">Export as CSV</button>
+
+    <div class="notification" id="notification">Test completed successfully!</div>
+
+    <button class="settings-toggle" id="settingsToggle">⚙️</button>
+    <div class="settings-panel" id="settingsPanel">
+        <h3>Settings</h3>
+        <div class="settings-group">
+            <label>Test Delay (ms)</label>
+            <input type="range" id="testDelay" min="100" max="1000" step="100" value="500">
+        </div>
+        <div class="settings-group">
+            <label>Auto-save Results</label>
+            <input type="checkbox" id="autoSave">
+        </div>
+    </div>
+    <div class="dialog-overlay" id="historyDialog">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <h2>Testing History</h2>
+                <button class="close-button" onclick="closeHistoryDialog()">×</button>
+            </div>
+            <div class="dialog-body">
+                <div class="history-summary">
+                    <div class="summary-cards">
+                        <div class="summary-card">
+                            <h3>Average Score</h3>
+                            <p id="averageScore">0%</p>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Best Score</h3>
+                            <p id="bestScore">0%</p>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Total Tests</h3>
+                            <p id="totalTests">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Score</th>
+                                <th>Compare</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="comparison-container" id="comparisonContainer">
+        <div class="comparison-header">
+            <h3>Results Comparison</h3>
+            <button class="close-button" onclick="closeComparison()">×</button>
+        </div>
+        <div class="comparison-body">
+            <div class="comparison-charts">
+                <canvas id="comparisonChart"></canvas>
+            </div>
+            <div class="comparison-details" id="comparisonDetails"></div>
+        </div>
+    </div>
+
+
+    <script>
+        const adNetworks = [
+            { name: 'DoubleClick', url: 'doubleclick.net' },
+            { name: 'Google Ad Services', url: 'partner.googleadservices.com' },
+            { name: 'Google Syndication', url: 'googlesyndication.com' },
+            { name: 'Google Analytics', url: 'google-analytics.com' },
+            { name: 'Facebook Creative', url: 'creative.ak.fbcdn.net' },
+            { name: 'AdBrite', url: 'adbrite.com' },
+            { name: 'Exponential', url: 'exponential.com' },
+            { name: 'Quantcast', url: 'quantserve.com' },
+            { name: 'ScorecardResearch', url: 'scorecardresearch.com' },
+            { name: 'Zedo', url: 'zedo.com' },
+            { name: 'Amazon Ads', url: 'adtago.s3.amazonaws.com' },
+            { name: 'Samsung Ads', url: 'samsungads.com' },
+            { name: 'Apple Ads', url: 'apple.com' },
+            { name: 'Xiaomi Ads', url: 'xiaomi.com' },
+            { name: 'Yandex Ads', url: 'yandex.ru' },
+            { name: 'Yahoo Ads', url: 'yahoo.com' },
+            { name: 'Twitter Ads', url: 'ads-twitter.com' },
+            { name: 'LinkedIn Ads', url: 'linkedin.com' },
+            { name: 'Reddit Ads', url: 'reddit.com' },
+            { name: 'Unity Ads', url: 'unity3d.com' },
+            { name: 'Hotjar', url: 'hotjar.com' },
+            { name: 'Mouseflow', url: 'mouseflow.com' },
+            { name: 'Sentry', url: 'getsentry.com' },
+            { name: 'OnePlus Ads', url: 'oneplus.cn' },
+            { name: 'Realme Ads', url: 'realme.com' },
+            { name: 'Oppo Ads', url: 'oppomobile.com' },
+            { name: 'Huawei Ads', url: 'hicloud.com' }
+        ];
+
+        const themeToggle = document.getElementById('themeToggle');
+        const startTest = document.getElementById('startTest');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const progressBar = document.getElementById('progressBar');
+        const adTestContainer = document.getElementById('adTestContainer');
+
+        // Theme Toggle
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.setAttribute('data-theme',
+                document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+            );
+            themeToggle.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌓';
+        });
+
+        // Create ad test items
+        function createAdTestItems() {
+            adTestContainer.innerHTML = '';
+            adNetworks.forEach(network => {
+                const item = document.createElement('div');
+                item.className = 'ad-test-item';
+                item.innerHTML = `
+                    <h3>${network.name}</h3>
+                    <p>${network.url}</p>
+                    <p class="status">Testing...</p>
+                `;
+                adTestContainer.appendChild(item);
+            });
+        }
+
+        // Simulate ad blocker test
+        function testAdBlocker() {
+            let score = 0;
+            const items = document.querySelectorAll('.ad-test-item');
+            const totalItems = items.length;
+            const scoreIncrement = 100 / totalItems; // Calculate score increment per item
+
+            items.forEach((item, index) => {
+                setTimeout(() => {
+                    // Simulate random blocking (in real implementation, you'd check if ads are actually blocked)
+                    const isBlocked = Math.random() > 0.3;
+
+                    if (isBlocked) {
+                        item.classList.add('blocked');
+                        item.querySelector('.status').textContent = 'Blocked ✅';
+                        score += scoreIncrement; // Increment score based on the calculated value
+                    } else {
+                        item.classList.add('not-blocked');
+                        item.querySelector('.status').textContent = 'Not Blocked ❌';
+                    }
+
+                    // Update score with animation
+                    gsap.to(scoreDisplay, {
+                        innerHTML: Math.round(score), // Round the score to the nearest integer
+                        duration: 0.5,
+                        snap: { innerHTML: 1 }
+                    });
+
+                    // Update progress bar
+                    progressBar.style.width = `${score}%`;
+
+                }, index * 500);
+            });
+        }
+
+        // Start test button click handler
+        startTest.addEventListener('click', () => {
+            startTest.disabled = true;
+            startTest.textContent = 'Testing...';
+
+            // Reset previous test
+            scoreDisplay.textContent = '0';
+            progressBar.style.width = '0%';
+
+            // Create new test items
+            createAdTestItems();
+
+            // Start the test
+            testAdBlocker();
+
+            // Re-enable button after test
+            setTimeout(() => {
+                startTest.disabled = false;
+                startTest.textContent = 'Start Test Again';
+            }, adNetworks.length * 500 + 1000);
+        });
+        // Add new JavaScript for additional features
+        function initializeCharts() {
+            const blockedCtx = document.getElementById('blockedChart').getContext('2d');
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+
+            new Chart(blockedCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Blocked', 'Not Blocked'],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: ['#4CAF50', '#f44336']
+                    }]
+                }
+            });
+
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Blocking Score Trend',
+                        data: [],
+                        borderColor: '#4CAF50'
+                    }]
+                }
+            });
+        }
+
+        function updateCharts(blockedCount, notBlockedCount) {
+            const charts = Chart.getChart('blockedChart');
+            charts.data.datasets[0].data = [blockedCount, notBlockedCount];
+            charts.update();
+        }
+
+        function saveTestHistory(score) {
+            const history = JSON.parse(localStorage.getItem('testHistory') || '[]');
+            history.push({
+                date: new Date().toISOString(),
+                score: score
+            });
+            localStorage.setItem('testHistory', JSON.stringify(history));
+        }
+
+        function exportToPDF() {
+            // Implementation for PDF export
+            showNotification('PDF exported successfully!');
+        }
+
+        function exportToCSV() {
+            // Implementation for CSV export
+            showNotification('CSV exported successfully!');
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+
+        // Initialize new features
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCharts();
+
+            // Settings panel toggle
+            document.getElementById('settingsToggle').addEventListener('click', () => {
+                document.getElementById('settingsPanel').classList.toggle('open');
+            });
+
+            // Export buttons
+            document.getElementById('exportPDF').addEventListener('click', exportToPDF);
+            document.getElementById('exportCSV').addEventListener('click', exportToCSV);
+
+            // Filter buttons
+            document.querySelectorAll('.filter-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    filterTestItems(button.dataset.filter);
+                });
+            });
+        });
+
+        function filterTestItems(filter) {
+            const items = document.querySelectorAll('.ad-test-item');
+            items.forEach(item => {
+                switch (filter) {
+                    case 'blocked':
+                        item.style.display = item.classList.contains('blocked') ? 'block' : 'none';
+                        break;
+                    case 'notblocked':
+                        item.style.display = item.classList.contains('not-blocked') ? 'block' : 'none';
+                        break;
+                    default:
+                        item.style.display = 'block';
+                }
+            });
+        }
+    </script>
+    <script src="script.js"></script>
+    <script>
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Add title
+            doc.setFontSize(20);
+            doc.text('AD-Blocker Test Results', 20, 20);
+
+            // Add date
+            doc.setFontSize(12);
+            doc.text(`Report Generated: ${new Date().toLocaleString()}`, 20, 30);
+
+            // Add overall score
+            const currentScore = document.getElementById('scoreDisplay').textContent;
+            doc.text(`Overall Score: ${currentScore}%`, 20, 40);
+
+            // Prepare table data
+            const tableData = [];
+            document.querySelectorAll('.ad-test-item').forEach(item => {
+                const name = item.querySelector('h3').textContent;
+                const url = item.querySelector('p').textContent;
+                const status = item.querySelector('.status').textContent;
+                tableData.push([name, url, status]);
+            });
+
+            // Add table
+            doc.autoTable({
+                startY: 50,
+                head: [['Ad Network', 'URL', 'Status']],
+                body: tableData,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [76, 175, 80] }
+            });
+
+            // Add charts
+            // Convert charts to base64 images
+            const blockedChartImg = document.getElementById('blockedChart').toDataURL('image/png');
+            const trendChartImg = document.getElementById('trendChart').toDataURL('image/png');
+
+            // Add new page for charts
+            doc.addPage();
+
+            // Add charts title
+            doc.setFontSize(16);
+            doc.text('Test Analytics', 20, 20);
+
+            // Add charts
+            doc.addImage(blockedChartImg, 'PNG', 20, 30, 80, 80);
+            doc.addImage(trendChartImg, 'PNG', 20, 120, 160, 80);
+
+            // Save the PDF
+            doc.save('adblocker-test-results.pdf');
+            showNotification('PDF exported successfully!');
+        }
+
+        function exportToCSV() {
+            // Prepare CSV data
+            let csvContent = 'Ad Network,URL,Status\n';
+
+            document.querySelectorAll('.ad-test-item').forEach(item => {
+                const name = item.querySelector('h3').textContent;
+                const url = item.querySelector('p').textContent;
+                const status = item.querySelector('.status').textContent;
+
+                // Escape commas and quotes in the data
+                const escapedName = `"${name.replace(/"/g, '""')}"`;
+                const escapedUrl = `"${url.replace(/"/g, '""')}"`;
+                const escapedStatus = `"${status.replace(/"/g, '""')}"`;
+
+                csvContent += `${escapedName},${escapedUrl},${escapedStatus}\n`;
+            });
+
+            // Create blob and download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+
+            // Create object URL
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'adblocker-test-results.csv');
+
+            // Append link, click it, and remove it
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Cleanup
+            URL.revokeObjectURL(url);
+            showNotification('CSV exported successfully!');
+        }
+
+        // Function to get test history for exports
+        function getTestHistory() {
+            return JSON.parse(localStorage.getItem('testHistory') || '[]');
+        }
+
+        // Update event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Previous event listeners remain the same
+
+            // Update export button listeners
+            document.getElementById('exportPDF').addEventListener('click', exportToPDF);
+            document.getElementById('exportCSV').addEventListener('click', exportToCSV);
+        });
+    </script>
+    <script>
+        // Add these functions to your existing JavaScript
+        let comparisonChart;
+
+        function showHistoryDialog() {
+            const historyDialog = document.getElementById('historyDialog');
+            historyDialog.style.display = 'block';
+            updateHistoryDialog();
+        }
+
+        function closeHistoryDialog() {
+            document.getElementById('historyDialog').style.display = 'none';
+        }
+
+        function updateHistoryDialog() {
+            const history = getTestHistory();
+            const tableBody = document.getElementById('historyTableBody');
+            tableBody.innerHTML = '';
+
+            // Calculate summary statistics
+            const scores = history.map(item => item.score);
+            const average = scores.length ? scores.reduce((a, b) => a + b) / scores.length : 0;
+            const best = scores.length ? Math.max(...scores) : 0;
+
+            // Update summary cards
+            document.getElementById('averageScore').textContent = `${Math.round(average)}%`;
+            document.getElementById('bestScore').textContent = `${Math.round(best)}%`;
+            document.getElementById('totalTests').textContent = history.length;
+
+            // Populate table
+            history.reverse().forEach((item, index) => {
+                const row = document.createElement('tr');
+                const date = new Date(item.date);
+                row.innerHTML = `
+                    <td>${date.toLocaleString()}</td>
+                    <td>${item.score}%</td>
+                    <td>
+                        <button class="compare-button" onclick="compareResults(${index})">Compare</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function compareResults(historyIndex) {
+            const history = getTestHistory().reverse();
+            const selectedTest = history[historyIndex];
+            const currentScore = parseInt(document.getElementById('scoreDisplay').textContent);
+
+            // Show comparison container
+            const comparisonContainer = document.getElementById('comparisonContainer');
+            comparisonContainer.style.display = 'block';
+
+            // Update comparison chart
+            if (comparisonChart) {
+                comparisonChart.destroy();
+            }
+
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Previous Test', 'Current Test'],
+                    datasets: [{
+                        label: 'Blocking Score',
+                        data: [selectedTest.score, currentScore],
+                        backgroundColor: ['rgba(76, 175, 80, 0.5)', 'rgba(76, 175, 80, 0.8)'],
+                        borderColor: ['#4CAF50', '#4CAF50'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            // Update comparison details
+            const comparisonDetails = document.getElementById('comparisonDetails');
+            const scoreDifference = currentScore - selectedTest.score;
+            const improvementText = scoreDifference >= 0 ? 'improved' : 'decreased';
+
+            comparisonDetails.innerHTML = `
+                <div class="comparison-summary">
+                    <p>Your blocking score has ${improvementText} by ${Math.abs(scoreDifference)}%</p>
+                    <p>Previous test date: ${new Date(selectedTest.date).toLocaleString()}</p>
+                </div>
+            `;
+        }
+
+        function closeComparison() {
+            document.getElementById('comparisonContainer').style.display = 'none';
+            if (comparisonChart) {
+                comparisonChart.destroy();
+            }
+        }
+
+        // Update the saveTestHistory function to include more details
+        function saveTestHistory(score) {
+            const history = JSON.parse(localStorage.getItem('testHistory') || '[]');
+            const testDetails = {
+                date: new Date().toISOString(),
+                score: score,
+                blockedCount: document.querySelectorAll('.ad-test-item.blocked').length,
+                totalTests: document.querySelectorAll('.ad-test-item').length
+            };
+            history.push(testDetails);
+            localStorage.setItem('testHistory', JSON.stringify(history));
+        }
+    </script>
+</body>
+
+</html>
