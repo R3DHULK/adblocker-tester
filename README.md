@@ -111,4 +111,4 @@ For support, please open an issue in the GitHub repository or contact the mainta
 
 **Note**: This tool is intended for educational and testing purposes only. Please use ad-blocking technology responsibly and in accordance with website terms of service.
 
-**Thank me**: Feel free to connect at namastesumalya@gmail.com. # adblocker-tester
+**Thank me**: Feel free to connect at namastesumalya@gmail.com.
