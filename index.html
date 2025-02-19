@@ -11,7 +11,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
-    
     <style>
         :root {
             --bg-color: #1a1a1a;
@@ -841,7 +840,7 @@
             });
         }
     </script>
-    <script src="script.js"></script>
+    <!-- <script src="script.js"></script> -->
     <script>
         function exportToPDF() {
             const { jsPDF } = window.jspdf;
@@ -950,74 +949,79 @@
         });
     </script>
     <script>
-        // Add these functions to your existing JavaScript
-        let comparisonChart;
+        // Initialize chart variables
+        let blockedChart, trendChart;
 
-        function showHistoryDialog() {
-            const historyDialog = document.getElementById('historyDialog');
-            historyDialog.style.display = 'block';
-            updateHistoryDialog();
-        }
+        // Function to test if a specific ad network is blocked
+        function testAdNetwork(url) {
+            return new Promise((resolve) => {
+                const testElement = document.createElement('div');
+                testElement.style.display = 'none';
 
-        function closeHistoryDialog() {
-            document.getElementById('historyDialog').style.display = 'none';
-        }
+                // Create a dummy ad element
+                const adElement = document.createElement('iframe');
+                adElement.src = `https://${url}/ads.html`;
 
-        function updateHistoryDialog() {
-            const history = getTestHistory();
-            const tableBody = document.getElementById('historyTableBody');
-            tableBody.innerHTML = '';
+                adElement.onerror = () => {
+                    // If the resource fails to load, it's likely blocked
+                    resolve(true);
+                    testElement.remove();
+                };
 
-            // Calculate summary statistics
-            const scores = history.map(item => item.score);
-            const average = scores.length ? scores.reduce((a, b) => a + b) / scores.length : 0;
-            const best = scores.length ? Math.max(...scores) : 0;
+                adElement.onload = () => {
+                    // If the resource loads, it's not blocked
+                    resolve(false);
+                    testElement.remove();
+                };
 
-            // Update summary cards
-            document.getElementById('averageScore').textContent = `${Math.round(average)}%`;
-            document.getElementById('bestScore').textContent = `${Math.round(best)}%`;
-            document.getElementById('totalTests').textContent = history.length;
+                // Set a timeout in case neither event fires
+                setTimeout(() => {
+                    resolve(true); // Assume blocked if no response
+                    testElement.remove();
+                }, 2000);
 
-            // Populate table
-            history.reverse().forEach((item, index) => {
-                const row = document.createElement('tr');
-                const date = new Date(item.date);
-                row.innerHTML = `
-                    <td>${date.toLocaleString()}</td>
-                    <td>${item.score}%</td>
-                    <td>
-                        <button class="compare-button" onclick="compareResults(${index})">Compare</button>
-                    </td>
-                `;
-                tableBody.appendChild(row);
+                testElement.appendChild(adElement);
+                document.body.appendChild(testElement);
             });
         }
 
-        function compareResults(historyIndex) {
-            const history = getTestHistory().reverse();
-            const selectedTest = history[historyIndex];
-            const currentScore = parseInt(document.getElementById('scoreDisplay').textContent);
+        // Initialize charts with proper data structure
+        function initializeCharts() {
+            const blockedCtx = document.getElementById('blockedChart').getContext('2d');
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
 
-            // Show comparison container
-            const comparisonContainer = document.getElementById('comparisonContainer');
-            comparisonContainer.style.display = 'block';
-
-            // Update comparison chart
-            if (comparisonChart) {
-                comparisonChart.destroy();
-            }
-
-            const ctx = document.getElementById('comparisonChart').getContext('2d');
-            comparisonChart = new Chart(ctx, {
-                type: 'bar',
+            blockedChart = new Chart(blockedCtx, {
+                type: 'doughnut',
                 data: {
-                    labels: ['Previous Test', 'Current Test'],
+                    labels: ['Blocked', 'Not Blocked'],
                     datasets: [{
-                        label: 'Blocking Score',
-                        data: [selectedTest.score, currentScore],
-                        backgroundColor: ['rgba(76, 175, 80, 0.5)', 'rgba(76, 175, 80, 0.8)'],
-                        borderColor: ['#4CAF50', '#4CAF50'],
-                        borderWidth: 1
+                        data: [0, 0],
+                        backgroundColor: ['#4CAF50', '#f44336']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Blocked vs Not Blocked Ads'
+                        }
+                    }
+                }
+            });
+
+            trendChart = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Blocking Score Trend',
+                        data: [],
+                        borderColor: '#4CAF50',
+                        tension: 0.4
                     }]
                 },
                 options: {
@@ -1030,39 +1034,326 @@
                     }
                 }
             });
+        }
+
+        // Modified testAdBlocker function to perform actual tests
+        async function testAdBlocker() {
+            let score = 0;
+            let blockedCount = 0;
+            let notBlockedCount = 0;
+            const items = document.querySelectorAll('.ad-test-item');
+            const totalItems = items.length;
+            const scoreIncrement = 100 / totalItems;
+
+            startTest.disabled = true;
+            startTest.textContent = 'Testing...';
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const url = item.querySelector('p').textContent;
+
+                try {
+                    const isBlocked = await testAdNetwork(url);
+
+                    if (isBlocked) {
+                        item.classList.add('blocked');
+                        item.querySelector('.status').textContent = 'Blocked ✅';
+                        score += scoreIncrement;
+                        blockedCount++;
+                    } else {
+                        item.classList.add('not-blocked');
+                        item.querySelector('.status').textContent = 'Not Blocked ❌';
+                        notBlockedCount++;
+                    }
+
+                    // Update score display with animation
+                    gsap.to(scoreDisplay, {
+                        innerHTML: Math.round(score),
+                        duration: 0.5,
+                        snap: { innerHTML: 1 }
+                    });
+
+                    // Update progress bar
+                    progressBar.style.width = `${score}%`;
+
+                } catch (error) {
+                    console.error(`Error testing ${url}:`, error);
+                    item.classList.add('error');
+                    item.querySelector('.status').textContent = 'Error testing';
+                }
+
+                // Add a small delay between tests
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            // Update charts
+            blockedChart.data.datasets[0].data = [blockedCount, notBlockedCount];
+            blockedChart.update();
+
+            // Update trend chart
+            const now = new Date();
+            const timeLabel = now.toLocaleTimeString();
+            trendChart.data.labels.push(timeLabel);
+            trendChart.data.datasets[0].data.push(Math.round(score));
+
+            // Keep only last 10 entries
+            if (trendChart.data.labels.length > 10) {
+                trendChart.data.labels.shift();
+                trendChart.data.datasets[0].data.shift();
+            }
+            trendChart.update();
+
+            // Save test history
+            saveTestHistory(Math.round(score));
+
+            // Show completion notification
+            showNotification(`Test completed! Score: ${Math.round(score)}%`);
+
+            // Re-enable start button
+            startTest.disabled = false;
+            startTest.textContent = 'Start Test Again';
+        }
+
+        // Function to check if an ad blocker is active
+        function detectAdBlocker() {
+            return new Promise((resolve) => {
+                const testAd = document.createElement('div');
+                testAd.innerHTML = '&nbsp;';
+                testAd.className = 'adsbox';
+                document.body.appendChild(testAd);
+
+                setTimeout(() => {
+                    if (testAd.offsetHeight === 0) {
+                        resolve(true); // Ad blocker detected
+                    } else {
+                        resolve(false); // No ad blocker detected
+                    }
+                    testAd.remove();
+                }, 100);
+            });
+        }
+
+        // Initialize event listeners and charts
+        document.addEventListener('DOMContentLoaded', async () => {
+            initializeCharts();
+
+            const hasAdBlocker = await detectAdBlocker();
+            if (!hasAdBlocker) {
+                showNotification('No ad blocker detected. Results may be less accurate.');
+            }
+
+            // Theme toggle listener
+            themeToggle.addEventListener('click', () => {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const textColor = isDark ? '#ffffff' : '#333333';
+
+                // Update chart colors
+                [blockedChart, trendChart].forEach(chart => {
+                    if (chart) {
+                        chart.options.plugins.legend.labels.color = textColor;
+                        chart.options.plugins.title.color = textColor;
+                        if (chart.options.scales) {
+                            chart.options.scales.x.ticks.color = textColor;
+                            chart.options.scales.y.ticks.color = textColor;
+                        }
+                        chart.update();
+                    }
+                });
+            });
+
+            // Start test button listener
+            startTest.addEventListener('click', () => {
+                // Reset previous test
+                scoreDisplay.textContent = '0';
+                progressBar.style.width = '0%';
+
+                // Create new test items
+                createAdTestItems();
+
+                // Start the actual test
+                testAdBlocker();
+            });
+        });
+
+        // Keep the existing functions for history, comparison, and export features
+    </script>
+    <script>
+        // Add this code after your existing charts initialization
+
+        function updateHistoryDisplay() {
+            const history = JSON.parse(localStorage.getItem('testHistory') || '[]');
+            const historyTableBody = document.getElementById('historyTableBody');
+            const averageScore = document.getElementById('averageScore');
+            const bestScore = document.getElementById('bestScore');
+            const totalTests = document.getElementById('totalTests');
+
+            // Clear existing table content
+            historyTableBody.innerHTML = '';
+
+            // Calculate statistics
+            if (history.length > 0) {
+                const scores = history.map(entry => entry.score);
+                const average = scores.reduce((a, b) => a + b) / scores.length;
+                const best = Math.max(...scores);
+
+                averageScore.textContent = `${Math.round(average)}%`;
+                bestScore.textContent = `${Math.round(best)}%`;
+                totalTests.textContent = history.length;
+
+                // Populate table
+                history.forEach((entry, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                <td>${new Date(entry.date).toLocaleString()}</td>
+                <td>${entry.score}%</td>
+                <td>
+                    <button class="compare-button" onclick="compareResults(${index})">
+                        Compare
+                    </button>
+                </td>
+            `;
+                    historyTableBody.appendChild(row);
+                });
+            } else {
+                averageScore.textContent = '0%';
+                bestScore.textContent = '0%';
+                totalTests.textContent = '0';
+            }
+        }
+
+        function showHistoryDialog() {
+            document.getElementById('historyDialog').style.display = 'block';
+            updateHistoryDisplay();
+        }
+
+        function closeHistoryDialog() {
+            document.getElementById('historyDialog').style.display = 'none';
+        }
+
+        // Modified saveTestHistory function
+        function saveTestHistory(score) {
+            const history = JSON.parse(localStorage.getItem('testHistory') || '[]');
+            history.push({
+                date: new Date().toISOString(),
+                score: score,
+                blockedAds: document.querySelectorAll('.ad-test-item.blocked').length,
+                totalAds: document.querySelectorAll('.ad-test-item').length
+            });
+            localStorage.setItem('testHistory', JSON.stringify(history));
+            updateHistoryDisplay();
+        }
+
+        // Modified testAdBlocker function to fix the "Start Test Again" button timing
+        async function testAdBlocker() {
+            let score = 0;
+            let blockedCount = 0;
+            let notBlockedCount = 0;
+            const items = document.querySelectorAll('.ad-test-item');
+            const totalItems = items.length;
+            const scoreIncrement = 100 / totalItems;
+
+            // Disable start button and change text
+            startTest.disabled = true;
+            startTest.textContent = 'Testing...';
+
+            // Reset previous results
+            items.forEach(item => {
+                item.classList.remove('blocked', 'not-blocked', 'error');
+                item.querySelector('.status').textContent = 'Testing...';
+            });
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const url = item.querySelector('p').textContent;
+
+                try {
+                    const isBlocked = await testAdNetwork(url);
+
+                    if (isBlocked) {
+                        item.classList.add('blocked');
+                        item.querySelector('.status').textContent = 'Blocked ✅';
+                        score += scoreIncrement;
+                        blockedCount++;
+                    } else {
+                        item.classList.add('not-blocked');
+                        item.querySelector('.status').textContent = 'Not Blocked ❌';
+                        notBlockedCount++;
+                    }
+
+                    // Update score display with animation
+                    gsap.to(scoreDisplay, {
+                        innerHTML: Math.round(score),
+                        duration: 0.5,
+                        snap: { innerHTML: 1 }
+                    });
+
+                    // Update progress bar
+                    progressBar.style.width = `${score}%`;
+
+                } catch (error) {
+                    console.error(`Error testing ${url}:`, error);
+                    item.classList.add('error');
+                    item.querySelector('.status').textContent = 'Error testing';
+                }
+
+                // Add a small delay between tests
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            // Update charts
+            updateCharts(blockedCount, notBlockedCount);
+
+            // Save test history
+            saveTestHistory(Math.round(score));
+
+            // Show completion notification
+            showNotification(`Test completed! Score: ${Math.round(score)}%`);
+
+            // Re-enable start button only after all tests are complete
+            setTimeout(() => {
+                startTest.disabled = false;
+                startTest.textContent = 'Start Test Again';
+            }, 1000); // Add a small delay after completion
+        }
+
+        // Add comparison functionality
+        function compareResults(index) {
+            const history = JSON.parse(localStorage.getItem('testHistory') || '[]');
+            const selectedTest = history[index];
+            const currentScore = parseInt(document.getElementById('scoreDisplay').textContent);
+
+            const comparisonContainer = document.getElementById('comparisonContainer');
+            const comparisonDetails = document.getElementById('comparisonDetails');
+
+            // Show comparison container
+            comparisonContainer.style.display = 'block';
 
             // Update comparison details
-            const comparisonDetails = document.getElementById('comparisonDetails');
-            const scoreDifference = currentScore - selectedTest.score;
-            const improvementText = scoreDifference >= 0 ? 'improved' : 'decreased';
-
             comparisonDetails.innerHTML = `
-                <div class="comparison-summary">
-                    <p>Your blocking score has ${improvementText} by ${Math.abs(scoreDifference)}%</p>
-                    <p>Previous test date: ${new Date(selectedTest.date).toLocaleString()}</p>
-                </div>
-            `;
+        <h4>Comparison Details</h4>
+        <p>Selected Test: ${new Date(selectedTest.date).toLocaleString()}</p>
+        <p>Selected Score: ${selectedTest.score}%</p>
+        <p>Current Score: ${currentScore}%</p>
+        <p>Difference: ${Math.abs(currentScore - selectedTest.score)}%</p>
+    `;
         }
 
         function closeComparison() {
             document.getElementById('comparisonContainer').style.display = 'none';
-            if (comparisonChart) {
-                comparisonChart.destroy();
-            }
         }
 
-        // Update the saveTestHistory function to include more details
-        function saveTestHistory(score) {
-            const history = JSON.parse(localStorage.getItem('testHistory') || '[]');
-            const testDetails = {
-                date: new Date().toISOString(),
-                score: score,
-                blockedCount: document.querySelectorAll('.ad-test-item.blocked').length,
-                totalTests: document.querySelectorAll('.ad-test-item').length
-            };
-            history.push(testDetails);
-            localStorage.setItem('testHistory', JSON.stringify(history));
-        }
+        // Update event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize existing features
+            initializeCharts();
+
+            // Add history dialog close on overlay click
+            document.getElementById('historyDialog').addEventListener('click', (e) => {
+                if (e.target.id === 'historyDialog') {
+                    closeHistoryDialog();
+                }
+            });
+        });
     </script>
 </body>
 
